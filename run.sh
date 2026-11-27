@@ -10,4 +10,5 @@ HORIZON=$(.venv/bin/python -c "import json;print(json.load(open('config.json'))[
 ENTRY=$(.venv/bin/python -c "import json;print(json.load(open('config.json')).get('entry_id') or '')")
 .venv/bin/python model.py "$HORIZON" || exit 1
 if [ "$1" != "--manual" ] && [ -n "$ENTRY" ]; then .venv/bin/python state.py "$ENTRY" || exit 1; fi
+.venv/bin/python rivals.py || echo "Could not update rival squads, using the last saved ones"
 .venv/bin/python planner.py

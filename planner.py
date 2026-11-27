@@ -8,6 +8,7 @@ and writes reports/plan-GW<n>-<date>.md with the stats behind every decision.
 Chips run per half of the season (GW1-19 and GW20-38); unused ones are lost at GW19.
 """
 import json
+import os
 
 import pandas as pd
 
@@ -34,7 +35,19 @@ active = {u["name"] for u in state["chips_used"] if u["gw"] == g0}
 # config "keep": names of players never to sell (e.g. ["Raya"])
 by_name = {els[i]["web_name"]: i for i in owned}
 cfg["keep"] = [by_name[n] for n in cfg.get("keep", []) if n in by_name]
-plan = solve(pred, players, owned, state["bank"], state["free_transfers"], windows, cfg, active)
+# mini-league differentials (rivals.py): automatic from the gap and weeks left unless overridden
+haul = pd.read_csv("predictions_haul.csv", index_col=0) if os.path.exists("predictions_haul.csv") else None
+rivals = None
+dcfg = cfg.get("differentials", {})
+if os.path.exists("data/rivals.json") and dcfg.get("auto", True) is not False:
+    rv = json.load(open("data/rivals.json"))
+    rivals = dict(ownership={int(k): v for k, v in rv["ownership"].items()},
+                  captaincy={int(k): v for k, v in rv["captaincy"].items()},
+                  risk=dcfg.get("risk") if dcfg.get("risk") is not None else rv["risk"],
+                  max_differentials=dcfg.get("max_differentials") or rv["max_differentials"],
+                  owned_by_at_most=dcfg.get("owned_by_at_most", 1) / max(rv["rivals"], 1), info=rv)
+plan = solve(pred, players, owned, state["bank"], state["free_transfers"], windows, cfg, active,
+             haul=haul, rivals=rivals)
 print("Solver status:", plan.status)
 for w in plan.weeks:
     problems = check_week(w, players, cfg)
@@ -109,6 +122,32 @@ for club_name, c in sorted(clubs.items(), key=lambda kv: kv[1]["kickoff"] or pd.
     state_txt = " ".join(c["state"])
     lines.append(f"| {club_name} | {ko} | {upd} | {state_txt} | {c['flagged']} |")
 lines += ["", "</details>", ""]
+
+if rivals:
+    rv = rivals["info"]
+    rown = rivals["ownership"]
+    hp = lambda i: float(haul.at[i, f"gw{g0}"]) if haul is not None and i in haul.index else 0.0
+    n_r = rv["rivals"]
+    lines += ["## 🎯 Mini-league view", "",
+              f"You're **{rv['gap']} pts behind first** with **{rv['weeks_left']} gameweeks left** "
+              f"(~{rv['gap'] / max(rv['weeks_left'], 1):.1f} a week to make up). Setting: up to "
+              f"**{rivals['max_differentials']} differentials** in your XI, risk **{rivals['risk']}** "
+              "(automatic: more when far behind with few weeks left, fewer when close, protective when leading).", "",
+              "Your league position only moves on players you own and rivals don't. Expected points count the same "
+              "either way; a differential adds the chance of a big week your rivals don't get.", ""]
+    diffs = [i for i in first.xi if rown.get(i, 0) <= rivals["owned_by_at_most"] + 1e-9]
+    if diffs:
+        lines += ["**Your differentials this week:**", ""] + [
+            f"- {name(i)} ({club[i]}): owned by {round(rown.get(i, 0) * n_r)} of {n_r} rivals · "
+            f"{pts(i, g0):.1f} pts predicted · {hp(i):.0%} chance of 10+" for i in diffs] + [""]
+    template = sorted((int(i) for i, o in rown.items() if o >= 0.5 and int(i) not in first.squad and int(i) in els),
+                      key=lambda i: -pts(i, g0))
+    if template:
+        lines += ["**Popular with rivals, not in your team** (if they haul, rivals gain on you):", ""] + [
+            f"- {name(i)}: owned by {round(rown[i] * n_r)} of {n_r} · {pts(i, g0):.1f} pts predicted · "
+            f"{hp(i):.0%} chance of 10+" for i in template[:6]] + [""]
+    capped = rivals["captaincy"].get(first.captain, 0)
+    lines += [f"Captain {name(first.captain)} is captained by {round(capped * n_r)} of {n_r} rivals.", ""]
 
 for w in plan.weeks:
     g = w.gw

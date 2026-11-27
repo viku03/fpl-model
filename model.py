@@ -293,6 +293,15 @@ class Ensemble:
         return np.mean([m.predict(X[self.feats] if isinstance(X, pd.DataFrame) else X) for m in self.models], axis=0)
 
 
+HAUL = 10  # a "big score": the kind of week that moves you up a mini-league
+HAUL_PARAMS = dict(PARAMS, objective="binary")
+
+
+def train_haul(df, feats):
+    """Chance of a big score (10+ points) in a match. Used to value differentials by their upside."""
+    return lgb.train(HAUL_PARAMS, lgb.Dataset(df[feats], (df["total_points"] >= HAUL).astype(int)), 400)
+
+
 def train(df, feats, weight=None):
     return Ensemble(df, feats, weight)
 
@@ -381,6 +390,13 @@ if __name__ == "__main__":
             te = hist[hist.season == PAST_SEASONS[i]]
             te = te.assign(pred=train(tr, feats).predict(te[feats]))
             oof.append(te[["pred", "total_points", "pos"]])
+            if i == len(PAST_SEASONS) - 1:
+                from sklearn.metrics import roc_auc_score
+                hp = train_haul(tr, feats).predict(te[feats])
+                big = (te["total_points"] >= HAUL).astype(int)
+                base = te["total_points_r6"].fillna(0)
+                print(f"  big-score (10+) model on {PAST_SEASONS[i]}: AUC {roc_auc_score(big, hp):.3f} "
+                      f"(last-6 average {roc_auc_score(big, base):.3f}); predicted rate {hp.mean():.3f} vs actual {big.mean():.3f}")
             te = te[te["n_games"] >= 3]
             report(te, f"model on {PAST_SEASONS[i]}")
             report(te.assign(pred=te["total_points_r6"].fillna(0)), f"last-6 avg on {PAST_SEASONS[i]}")
@@ -411,4 +427,12 @@ if __name__ == "__main__":
     out = apply_availability(out, boot["elements"], boot["events"], next_gw)
     out.columns = [f"gw{c}" for c in out.columns]
     out.to_csv("predictions.csv")
+
+    # chance of a big score per player per gameweek (two matches in a week: either one)
+    fut["haul"] = train_haul(hist, feats).predict(fut[feats])
+    haul = fut.groupby(["element", "GW"])["haul"].apply(lambda p: 1 - np.prod(1 - p)).unstack()
+    haul = haul.reindex(index=out.index, columns=FUTURE_GWS).fillna(0)
+    haul = haul.where(out.values > 0, 0)  # unavailable players can't haul
+    haul.columns = out.columns
+    haul.to_csv("predictions_haul.csv")
     print(f"Saved predictions.csv for GW{FUTURE_GWS[0]}-{FUTURE_GWS[-1]}")

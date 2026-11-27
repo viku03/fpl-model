@@ -49,11 +49,15 @@ def chip_windows(chip_rules, chips_used, g0):
     return windows
 
 
-def solve(pred, players, owned, bank0, ft0, windows, cfg, active=(), time_limit=None, free_first=False):
+def solve(pred, players, owned, bank0, ft0, windows, cfg, active=(), time_limit=None, free_first=False,
+          haul=None, rivals=None):
     """pred: DataFrame (index player id, columns gw<N>) of predicted points.
     players: DataFrame (index player id) with pos (1-4), club, price.
     owned: {player id: selling price} for your 15. active: chips already played this week.
-    free_first: unlimited free transfers in the first week (building a squad from scratch)."""
+    free_first: unlimited free transfers in the first week (building a squad from scratch).
+    haul: DataFrame like pred with each player's chance of a big score (10+).
+    rivals: {"ownership": {id: share of rivals}, "captaincy": {...}, "risk": float,
+             "max_differentials": int, "owned_by_at_most": share} for mini-league differentials."""
     gws = [int(c[2:]) for c in pred.columns]
     g0 = gws[0]
     pts = lambda i, g: float(pred.at[i, f"gw{g}"]) if i in pred.index else 0.0
@@ -141,6 +145,18 @@ def solve(pred, players, owned, bank0, ft0, windows, cfg, active=(), time_limit=
         # bench_weight values bench players a little (autosubs)
         week = pulp.lpSum((1.01 * x[i, g] + c[i, g] + t3[i, g] + bb[i, g] + cfg.get("bench_weight", 0.1) * s[i, g])
                           * pts(i, g) for i in P)
+        # mini-league swing: a starter's big-score chance is worth more when rivals don't own him
+        # (it moves you up) and less when most do (not owning him is the swing). Expected points
+        # themselves count the same either way. Capped at max_differentials starters owned by
+        # at most owned_by_at_most of the rivals.
+        if rivals and haul is not None:
+            own = lambda i: rivals["ownership"].get(i, 0.0)
+            capt = lambda i: rivals["captaincy"].get(i, 0.0)
+            hp = lambda i: float(haul.at[i, f"gw{g}"]) if i in haul.index else 0.0
+            r = rivals["risk"] * 10
+            week += pulp.lpSum(r * hp(i) * ((1 - 2 * own(i)) * x[i, g] + (1 - 2 * capt(i)) * c[i, g]) for i in P)
+            diffs = [i for i in P if own(i) <= rivals["owned_by_at_most"] + 1e-9]
+            m += pulp.lpSum(x[i, g] for i in diffs) <= rivals["max_differentials"]
         # transfer_cost: a small charge per free transfer used, so the plan skips moves that only
         # gain a fraction of a point (predictions aren't that precise)
         obj.append(w * week - cfg["hit_cost"] * hits[g] - cfg.get("transfer_cost", 0) * used_ft[g])

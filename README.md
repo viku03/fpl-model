@@ -19,6 +19,7 @@ The plan prints and is saved to `reports/plan-GW<next gw>-<date>.md`, with the s
 | `fetch_cups.py` | Downloads Champions League, Europa, Conference, FA Cup and League Cup matches from ESPN into `data/cups.csv` (cached; the first run takes ~11 min, weekly runs a few seconds) |
 | `odds.py` | Downloads market-average match odds (home/draw/away, over/under 2.5) from football-data.co.uk, a free site that publishes them as CSV for analysis, and converts them to expected goals for each side in `data/odds_goals.csv` |
 | `model.py` | Trains on 4 past seasons (2022-23 to 2025-26) + this season so far (finished matches only), calibrates the predictions to real points per position and predicts points per player for the next `horizon` gameweeks into `predictions.csv`. Prints walk-forward validation each run |
+| `rivals.py` | Pulls your mini-league rivals' squads and captains, the gap to first and weeks left, and sets how many differentials to allow and how much risk to take (automatic) |
 | `state.py` | Builds `squad.json` from your team ID: 15 players with selling prices, bank, free transfers, chips used |
 | `squad.json` | Your current squad. Edit by hand if needed (e.g. transfers you've made before the deadline, which FPL hides until it passes) |
 | `config.json` | Your rules and planner settings |
@@ -40,6 +41,18 @@ The plan prints and is saved to `reports/plan-GW<next gw>-<date>.md`, with the s
 It averages six LightGBM models: a squared-error and a Huber model (less thrown by rare big hauls), each trained with 3 different random seeds. Settings were picked by random search on 2024-25 and confirmed on 2025-26: small, heavily regularised trees, since one match is mostly noise.
 
 The raw trees shrink towards the average (a raw 4.8 actually averaged 5.3), so the final predictions go through a smooth **calibration curve per position**, learned from the walk-forward predictions. It only rescales the numbers; the order of players is unchanged.
+
+## Mini-league differentials
+
+Your league position only moves on players you own and rivals don't. Each run, `rivals.py` reads your league (`league_id` in config.json) and the planner:
+
+- counts expected points the same whoever owns a player (on average that's what moves you), but
+- gives a starter a bonus of `risk x 10 x P(10+ points) x (1 - 2 x share of rivals owning him)`: positive for players rivals don't have, negative for ones most of them do (the same for captaincy),
+- allows at most `max_differentials` starters owned by 0-1 rivals.
+
+Both numbers are automatic from the gap to first and the weeks left: about 3-4 differentials when ~100 behind with 27 weeks left, more if you're still far behind late on, fewer when close, and protective (favouring players rivals own) when you're leading. Override them under `differentials` in config.json. The report's "Mini-league view" lists your differentials, their big-score chance, and popular players you don't own.
+
+The big-score chance comes from a second LightGBM model trained on whether a player scored 10+ (AUC 0.856 vs 0.815 for recent form on 2025-26, predicted rate 1.4% vs 1.7% actual).
 
 ## Rules it knows
 
@@ -88,6 +101,7 @@ PYTHONPATH=. .venv/bin/python -m experiments.backtest run 2025-26,2024-25     # 
 - CatBoost (worse), XGBoost (equal), random forest and LightGBM + random forest blends (better at the very top on one measure, worse prediction error)
 - Weighting hauls (5+) more in training
 - 10-game windows, per-90 rates, player expected goals from odds x xG share: no clear gain
+- Penalty / corner / free-kick taker flags (prompted by top managers owning Groß at 98%): no gain, set-piece value already shows up in xG and xA
 - Counting this season's games more than past seasons: worse when replaying 2024-25 and 2025-26 from GW9
 
 - Separate minutes model (P(0 / 1-59 / 60+ minutes) x points for each): predicts who plays very well but the final points were no better and training took twice as long

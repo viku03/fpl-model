@@ -72,3 +72,61 @@ def test_never_picks_banned_club():
     pred.loc[players.club == "LIV"] = 20.0  # even if Liverpool players look amazing
     plan = solve(pred, players, {}, 100.0, 1, {}, CFG, free_first=True)
     assert not any(players.club[i] == "LIV" for i in plan.weeks[0].squad)
+
+
+# --- mini-league differentials --------------------------------------------------------------
+
+from rivals import risk_settings  # noqa: E402
+
+
+def test_risk_grows_when_far_behind_with_few_weeks_left():
+    now = risk_settings(gap=100, weeks_left=27)
+    late = risk_settings(gap=100, weeks_left=8)
+    close = risk_settings(gap=20, weeks_left=27)
+    assert 3 <= now["max_differentials"] <= 4
+    assert late["max_differentials"] > now["max_differentials"] and late["risk"] > now["risk"]
+    assert close["max_differentials"] < now["max_differentials"]
+
+
+def test_leading_turns_protective():
+    s = risk_settings(gap=-15, weeks_left=10)
+    assert s["max_differentials"] == 1 and s["risk"] < 0
+
+
+def diff_setup(cap, risk=1.0):
+    players, pred = league()
+    owned = {i: 5.0 for i in squad(players)}
+    haul = pred * 0 + 0.05
+    # every player nobody else owns except the current squad, which rivals all own
+    ownership = {i: 1.0 for i in owned}
+    rivals = dict(ownership=ownership, captaincy={}, risk=risk, max_differentials=cap, owned_by_at_most=1 / 7)
+    return players, pred, owned, haul, rivals
+
+
+def test_differential_cap_respected():
+    players, pred, owned, haul, rivals = diff_setup(cap=2)
+    pred[:] = 3.0
+    for i in players.index:
+        if i not in owned:
+            pred.loc[i] = 3.5  # differentials slightly better everywhere
+    plan = solve(pred, players, owned, 0.0, 5, {}, CFG, free_first=True, haul=haul, rivals=rivals)
+    for w in plan.weeks:
+        assert sum(rivals["ownership"].get(i, 0) <= 1 / 7 for i in w.xi) <= 2
+
+
+def test_equal_points_prefers_the_differential():
+    players, pred, owned, haul, rivals = diff_setup(cap=4)
+    out_id = next(i for i in owned if players.pos[i] == 3 and players.club[i] != "MUN")
+    in_id = next(i for i in players.index if players.pos[i] == 3 and i not in owned
+                 and players.club[i] == players.club[out_id])
+    haul.loc[[out_id, in_id]] = 0.3
+    plan = solve(pred, players, owned, 0.0, 1, {}, CFG, haul=haul, rivals=rivals)
+    assert in_id in plan.weeks[0].squad  # same expected points, but rivals don't have him
+
+
+def test_chip_never_left_to_expire():
+    """A chip whose window ends inside the plan must be used (it's worth nothing afterwards)."""
+    players, pred = league()
+    owned = {i: 5.0 for i in squad(players)}
+    plan = solve(pred, players, owned, 0.0, 1, {"3xc": [(1, 2)]}, CFG)
+    assert any(w.chip == "3xc" for w in plan.weeks)

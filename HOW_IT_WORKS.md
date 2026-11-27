@@ -144,6 +144,11 @@ That's around 90 features in total.
 - `predictions.csv`: one row per player, one column per gameweek. Double gameweeks are summed and blank gameweeks are 0.
 - `predictions_detail.csv`: the stats for each fixture, which the report quotes.
 
+### `rivals.py`: your mini-league
+- Reads your league's standings and every rival's latest squad and captain, giving each player a "share of rivals who own / captain him".
+- `risk_settings(gap, weeks_left)` turns the gap to first and the weeks left into a cap on differentials and a risk level: points a week to make up = gap / weeks left; cap ≈ that + 0.5 (1-6), risk = that / 6 (max 1). Leading gives 1 differential and a negative risk, which favours players your rivals own.
+- The planner adds `risk × 10 × P(10+) × (1 − 2 × ownership)` per starter (and per captain with captaincy share) and caps starters owned by 0-1 rivals. Expected points are unchanged, because owning a player helps you by his expected points whoever else owns him; ownership only changes the swing.
+
 ### `state.py`: your current squad
 - `main(entry_id)` fetches your history, picks and transfers, then:
   - **Free transfers**: replays the season. You start with 1 in GW2, get +1 each week (max 5), use them on transfers, and keep them when you play a wildcard or free hit.
