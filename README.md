@@ -4,6 +4,47 @@
 
 Predicts Fantasy Premier League points with a LightGBM model and plans transfers, captains and chips for your actual squad.
 
+## Results
+
+![Season replay](docs/backtest.png)
+
+Each past season is replayed week by week with the planner making every decision (transfers, captain, chips, hits), using only what was known before each deadline, and scored on what actually happened. The same planner fed simple "average of the last 6 games" predictions is the baseline:
+
+| Season | Model + planner | Last-6 form + planner | Difference |
+|---|---|---|---|
+| 2024-25 | **2,103** (55.3 / GW) | 1,797 (47.3 / GW) | **+306** |
+| 2025-26 | **2,374** (62.5 / GW) | 1,743 (45.9 / GW) | **+631** |
+
+Part of the baseline's gap is churn: form-based predictions jump around, so it took 51-54 hits a season chasing them versus 7-12 for the model.
+
+Prediction accuracy, walk-forward (each season predicted by a model trained only on earlier ones):
+
+| | 2023-24 | 2024-25 | 2025-26 |
+|---|---|---|---|
+| MAE (points per player-match) | 0.883 | 0.935 | 0.905 |
+| Ranking accuracy among regular starters (Spearman) | 0.348 | 0.340 | 0.272 |
+| Weekly top-20 picks, actual points per player | 4.50 | 4.76 | 4.45 |
+| Same, picking by last-6 average | 4.25 | 4.22 | 3.86 |
+
+So the model's picks score about 0.3-0.6 points more per player per week than picking on recent form. Single matches are mostly luck, which is why a ranking correlation around 0.3 is normal for FPL.
+
+## How it fits together
+
+```mermaid
+flowchart LR
+    A[FPL API<br/>players, fixtures, history] --> F
+    B[football-data.co.uk<br/>bookmaker odds] --> F
+    C[ESPN<br/>European & cup fixtures] --> F
+    D[vaastav archive<br/>past seasons] --> F
+    F[Features<br/>form, xG, team strength,<br/>odds, rest days] --> M[LightGBM ensemble<br/>+ per-position calibration]
+    F --> H[LightGBM<br/>P 10+ points]
+    S[Your squad, bank,<br/>transfers, chips] --> P
+    R[League rivals'<br/>ownership & gap] --> P
+    M --> P[MILP planner<br/>PuLP / CBC, 6 weeks]
+    H --> P
+    P --> O[Weekly report<br/>deadline, team news,<br/>transfers, captain, chips]
+```
+
 ## Setup
 
 ```
@@ -106,6 +147,7 @@ PYTHONPATH=. .venv/bin/python -m experiments.exp_ideas   # re-run any experiment
 ```
 PYTHONPATH=. .venv/bin/python -m experiments.backtest preds 2025-26 2024-25   # once, ~5 min
 PYTHONPATH=. .venv/bin/python -m experiments.backtest run 2025-26,2024-25     # every setting in CONFIGS, ~15 min
+.venv/bin/python docs/make_charts.py                                         # rebuild docs/backtest.png
 ```
 
 `experiments/harness.py` builds every feature once and scores an idea on 2024-25 and 2025-26 with 5 measures, including the actual points of the best XI the model would have picked each week. Gains under ~1.5 on that measure are noise (the same model re-run varies that much).

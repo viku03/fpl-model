@@ -10,7 +10,6 @@ Simplifications: no injury flags (the model only sees past minutes), selling pri
 match-time price, and a bench player only comes on if he played.
 """
 import json
-import os
 import pickle
 import sys
 from multiprocessing import Pool
@@ -43,7 +42,7 @@ def build_preds(season, horizon=6):
     raw = M.load_past(season)
     odds = pd.read_csv("data/odds_goals.csv")
     home = raw[raw.was_home.astype(bool)]
-    pair_gw = {(a, b): g for a, b, g in zip(M.key(home.team), M.key(home.opp), home.GW)}
+    pair_gw = {(a, b): g for a, b, g in zip(M.key(home.team), M.key(home.opp), home.GW, strict=False)}
     actual = raw.groupby(["element", "GW"]).agg(pts=("total_points", "sum"), mins=("minutes", "sum"))
     info = raw.sort_values("GW").groupby("element").agg(pos=("pos", "first"), team=("team", "last"))
     out = {"actual": actual, "info": info, "weeks": {}}
@@ -52,7 +51,7 @@ def build_preds(season, horizon=6):
         fut = r.GW >= t
         r.loc[fut, M.STATS] = np.nan
         r["future"] = fut
-        played = np.array([pair_gw.get((h, a), 99) <= t for h, a in zip(odds.home, odds.away)])
+        played = np.array([pair_gw.get((h, a), 99) <= t for h, a in zip(odds.home, odds.away, strict=False)])
         known = odds[(odds.season != season).values | played]
         dt, _ = M.add_features(r, odds=known)
         rows = dt[dt["future"] & dt.GW.between(t, t + horizon - 1)].copy()
@@ -60,7 +59,10 @@ def build_preds(season, horizon=6):
         pred = rows.pivot_table(index="element", columns="GW", values="pred", aggfunc="sum")
         pred = pred.reindex(columns=range(t, min(t + horizon, 39))).fillna(0)
         price = raw[raw.GW <= t].sort_values("GW").groupby("element")["value"].last() / 10
-        out["weeks"][t] = (pred, price, rows.groupby("element")["team"].last())
+        # baseline for the README chart: same planner, predictions = average of the last 6 games
+        form = rows.pivot_table(index="element", columns="GW", values="total_points_r6", aggfunc="sum")
+        form = form.reindex(index=pred.index, columns=pred.columns).fillna(0)
+        out["weeks"][t] = (pred, price, rows.groupby("element")["team"].last(), form)
         print(f"{season} GW{t}: predicted {len(pred)} players", flush=True)
     pickle.dump(out, open(preds_path(season), "wb"))
 
@@ -98,7 +100,9 @@ def simulate(args):
     horizon = cfg["horizon"]
     owned, bank, ft, chips_used, total, log = {}, 100.0, 1, [], 0.0, []
     for t in range(1, 39):
-        pred, price, teams = data["weeks"][t]
+        pred, price, teams, form = data["weeks"][t]
+        if cfg.get("use_form"):
+            pred = form
         pred = pred.iloc[:, :horizon]
         pred.columns = [f"gw{g}" for g in pred.columns]
         ids = sorted(set(pred.index) | set(owned))
@@ -140,6 +144,7 @@ CONFIGS = {
     "chips used freely": {"chip_reserve_points": {"wildcard": 0, "freehit": 0, "bboost": 0, "3xc": 0}},
     "chips held hard": {"chip_reserve_points": {"wildcard": 20, "freehit": 20, "bboost": 12, "3xc": 15}},
     "no discount": {"discount": 1.0},
+    "form baseline": {"use_form": True},
 }
 
 if __name__ == "__main__":

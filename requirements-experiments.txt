@@ -2,3 +2,4 @@
 catboost==1.2.10
 xgboost==3.4.1
 ruff==0.14.0
+matplotlib==3.10.7
