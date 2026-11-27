@@ -23,10 +23,13 @@ CURRENT_SEASON = "2026-27"
 HORIZON = int(sys.argv[1]) if len(sys.argv) > 1 else 6
 VALIDATE = "--no-validate" not in sys.argv
 
-boot = json.load(open("data/boot.json"))
+try:
+    boot = json.load(open("data/boot.json"))
+    fixtures = json.load(open("data/fix.json"))
+except FileNotFoundError:  # no downloaded data (e.g. CI): the pure functions still import and test
+    boot, fixtures = {"events": [{"id": 1, "is_next": True}], "teams": [], "elements": []}, []
 next_gw = next(e["id"] for e in boot["events"] if e["is_next"])
 FUTURE_GWS = [g for g in range(next_gw, next_gw + HORIZON) if g <= 38]
-fixtures = json.load(open("data/fix.json"))
 team_name = {t["id"]: t["name"] for t in boot["teams"]}
 
 # ESPN club names -> FPL club names

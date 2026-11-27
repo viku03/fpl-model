@@ -92,6 +92,7 @@ class TestRollingFeatures:
         assert d.loc[4, "total_points_r3"] == pytest.approx(6.0)  # same for every future week
 
 
+@pytest.mark.needs_data
 class TestClubNames:
     def test_fpl_and_bookmaker_names_match(self):
         o = pd.read_csv("data/odds_goals.csv")

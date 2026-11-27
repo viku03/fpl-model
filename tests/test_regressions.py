@@ -16,7 +16,11 @@ from solver import solve  # noqa: E402
 from state import purchase_from_history, real_squad_gw  # noqa: E402
 from tests.test_solver import CFG, league, squad  # noqa: E402
 
-FIX = {f["id"]: f for f in json.load(open("data/fix.json"))}
+
+
+@pytest.fixture(scope="module")
+def FIX():
+    return {f["id"]: f for f in json.load(open("data/fix.json"))}
 
 
 @pytest.fixture(scope="module")
@@ -26,13 +30,15 @@ def current():
 
 # --- data loading ---------------------------------------------------------------------------
 
-def test_live_matches_not_used_as_finished(current):
+@pytest.mark.needs_data
+def test_live_matches_not_used_as_finished(current, FIX):
     """Bug: mid-gameweek, live/unplayed matches had 0 minutes and halved every prediction."""
     real = current[current["future"] != True]  # noqa: E712
     assert all(FIX[f]["finished"] or FIX[f]["finished_provisional"] for f in real["fixture"].unique())
 
 
-def test_summer_signings_credited_to_club_they_played_for(current):
+@pytest.mark.needs_data
+def test_summer_signings_credited_to_club_they_played_for(current, FIX):
     """Bug: a player's early-season games were counted for his new club after a transfer."""
     real = current[current["future"] != True].sample(500, random_state=0)  # noqa: E712
     for r in real.itertuples():
@@ -40,6 +46,7 @@ def test_summer_signings_credited_to_club_they_played_for(current):
         assert r.team == M.team_name[f["team_h"] if r.was_home else f["team_a"]]
 
 
+@pytest.mark.needs_data
 def test_assistant_manager_rows_dropped():
     """Bug: 2024-25 'AM' (assistant manager chip) rows were trained on as midfielders."""
     d = M.load_past("2024-25")
@@ -47,6 +54,7 @@ def test_assistant_manager_rows_dropped():
     assert "AM" not in set(d["position"])
 
 
+@pytest.mark.needs_data
 def test_missing_xg_is_unknown_not_zero():
     """Bug: 2022-23 stored xG as 0 before GW16, which reads as 'no chances'."""
     d = M.load_past("2022-23")
@@ -54,6 +62,7 @@ def test_missing_xg_is_unknown_not_zero():
     assert d[d.GW >= 16]["expected_goals"].notna().any()
 
 
+@pytest.mark.needs_data
 def test_prior_season_per_90_not_per_start():
     """Bug: last season's numbers were divided by starts, so a sub with 1 start looked elite.
     Also: 2021-22 has no starts / xGI columns and crashed."""
@@ -173,6 +182,7 @@ def test_team_news_times():
 
 
 @pytest.mark.slow
+@pytest.mark.needs_data
 def test_planner_runs_end_to_end():
     """Bug: a variable in the report loop shadowed a function and crashed the report.
     Runs the real planner on the current data and checks the report comes out."""

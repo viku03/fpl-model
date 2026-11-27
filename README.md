@@ -1,5 +1,7 @@
 # FPL model
 
+[![tests](https://github.com/viku03/fpl-model/actions/workflows/tests.yml/badge.svg)](https://github.com/viku03/fpl-model/actions/workflows/tests.yml)
+
 Predicts Fantasy Premier League points with a LightGBM model and plans transfers, captains and chips for your actual squad.
 
 ## Setup
@@ -90,7 +92,7 @@ curl -o data/raw_<season>.csv https://raw.githubusercontent.com/vaastav/Fantasy-
 
 ## Tests and experiments
 
-`tests/test_core.py` covers the rules and maths, `tests/test_solver.py` the optimiser on a made-up league, and `tests/test_regressions.py` has one test per bug found so far. Every new bug fix gets a test there.
+Tests run on every push (GitHub Actions); the 8 that need the downloaded `data/` are skipped there and run locally with `test.py`. `tests/test_core.py` covers the rules and maths, `tests/test_solver.py` the optimiser on a made-up league, and `tests/test_regressions.py` has one test per bug found so far. Every new bug fix gets a test there.
 
 ```
 .venv/bin/python test.py            # every test (~20 s), including a full planner run
