@@ -13,9 +13,10 @@ import os
 import pandas as pd
 
 import team_news
+from settings import load_config
 from solver import CHIPS, chip_windows, check_week, solve
 
-cfg = json.load(open("config.json"))
+cfg = load_config()
 state = json.load(open("squad.json"))
 boot = json.load(open("data/boot.json"))
 pred = pd.read_csv("predictions.csv", index_col=0)

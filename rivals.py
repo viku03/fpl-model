@@ -10,6 +10,7 @@ you want less.
 """
 import json
 import urllib.request
+from settings import load_config
 
 API = "https://fantasy.premierleague.com/api"
 
@@ -33,7 +34,10 @@ def risk_settings(gap, weeks_left):
 
 
 def main():
-    cfg = json.load(open("config.json"))
+    cfg = load_config()
+    if not cfg.get("league_id") or not cfg.get("entry_id"):
+        print("No league_id / entry_id set (config.json or FPL_LEAGUE_ID / FPL_ENTRY_ID): skipping rivals")
+        return
     boot = get("bootstrap-static/")
     last_gw = max(e["id"] for e in boot["events"] if e["finished"] or e["is_current"])
     standings = get(f"leagues-classic/{cfg['league_id']}/standings/")["standings"]["results"]

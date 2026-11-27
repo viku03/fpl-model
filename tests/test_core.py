@@ -113,3 +113,18 @@ class TestClubNames:
         english_in_europe = {"Arsenal", "Aston Villa", "Brighton", "Chelsea", "Crystal Palace", "Liverpool", "Man City",
                              "Man Utd", "Newcastle", "Nott'm Forest", "Spurs", "West Ham"}
         assert english_in_europe & fpl <= euro | (english_in_europe - fpl)
+
+
+class TestSettings:
+    def test_env_overrides_ids(self, monkeypatch):
+        from settings import load_config
+        monkeypatch.setenv("FPL_ENTRY_ID", "123")
+        monkeypatch.setenv("FPL_LEAGUE_ID", "456")
+        cfg = load_config()
+        assert cfg["entry_id"] == 123 and cfg["league_id"] == 456
+
+    def test_example_config_has_no_personal_ids(self):
+        import json
+        ex = json.load(open("config.example.json"))
+        assert ex["entry_id"] is None and ex["league_id"] is None
+        assert ex["banned_teams"] and "transfer_cost" in ex

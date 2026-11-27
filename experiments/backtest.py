@@ -23,10 +23,11 @@ sys.argv = sys.argv[:1] + ["6", "--no-validate"]
 import model as M  # noqa: E402
 from solver import chip_windows, solve  # noqa: E402
 from state import selling_price  # noqa: E402
+from settings import load_config  # noqa: E402
 
 SHORT = {"Liverpool": "LIV", "Man Utd": "MUN"}  # only the clubs your rules mention
 BOOT = json.load(open("data/boot.json"))
-BASE = json.load(open("config.json"))
+BASE = load_config()
 
 
 def preds_path(season):

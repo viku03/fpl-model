@@ -1,0 +1,31 @@
+{
+  "entry_id": null,
+  "banned_teams": [
+    "LIV"
+  ],
+  "min_players_from_team": {
+    "MUN": 1
+  },
+  "horizon": 6,
+  "discount": 0.9,
+  "hit_cost": 4,
+  "value_of_saved_free_transfer": 1.5,
+  "chip_reserve_points": {
+    "wildcard": 10,
+    "freehit": 10,
+    "bboost": 6,
+    "3xc": 8
+  },
+  "players_per_position": 25,
+  "solver_seconds": 180,
+  "transfer_cost": 1.0,
+  "league_id": null,
+  "differentials": {
+    "auto": true,
+    "max_differentials": null,
+    "risk": null,
+    "owned_by_at_most": 1,
+    "_note": "auto picks both from the gap to first and weeks left; set numbers to override"
+  },
+  "_setup": "Copy to config.json and set entry_id (the number in your FPL points page URL) and league_id, or set FPL_ENTRY_ID / FPL_LEAGUE_ID"
+}

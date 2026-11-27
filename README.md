@@ -2,6 +2,18 @@
 
 Predicts Fantasy Premier League points with a LightGBM model and plans transfers, captains and chips for your actual squad.
 
+## Setup
+
+```
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt     # requirements-experiments.txt adds CatBoost / XGBoost for experiments/
+cp config.example.json config.json            # then set entry_id and league_id
+```
+
+`entry_id` is the number in your FPL points page URL (`fantasy.premierleague.com/entry/<ID>/event/<GW>`), `league_id` the one in your mini-league's URL. Instead of editing the file you can set `FPL_ENTRY_ID` and `FPL_LEAGUE_ID`. `config.json` and `squad.json` are git-ignored.
+
+The first run downloads past seasons (vaastav/Fantasy-Premier-League), odds and fixtures into `data/`; see "Each new season" for the file names.
+
 ## Weekly use
 
 ```
