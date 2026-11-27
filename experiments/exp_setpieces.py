@@ -1,7 +1,6 @@
 """Penalty / corner / free-kick takers as features (from FPL's taker order: end-of-season snapshot for
 past seasons, live for this one). Prompted by top managers owning Groß at 98% while the model didn't."""
 import json
-import numpy as np
 import pandas as pd
 from experiments.harness import load, evaluate, M, Model
 

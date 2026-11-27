@@ -96,7 +96,7 @@ def evaluate(d, feats, make_model, label="", seasons=TEST_SEASONS, train_from=No
     r = pd.DataFrame(rows)
     if verbose:
         print(f"{label:34s} " + "  ".join(f"{s[2:]}: MAE {x.mae:.3f} sp {x.spearman:.3f} top50 {x.top50:.2f} XI {x.bestxi:.1f}"
-                                           for s, x in zip(r.season, r.itertuples())))
+                                           for s, x in zip(r.season, r.itertuples(), strict=False)))
     return r
 
 
@@ -109,7 +109,7 @@ class Model:
             w = weight(part) if weight else None
             ms = []
             for s in range(seeds):
-                for p, r in zip(params, rounds):
+                for p, r in zip(params, rounds, strict=False):
                     ms.append(lgb.train(dict(p, seed=s), lgb.Dataset(part[f], part["total_points"], weight=w), r))
             self.models[k] = ms
 

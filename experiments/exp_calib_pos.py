@@ -1,6 +1,6 @@
 """Calibration by position and for regular starters (walk-forward predictions)."""
 import pickle
-import numpy as np, pandas as pd
+import pandas as pd
 from experiments.harness import load, M
 
 d, feats, extra = load(rebuild=True)

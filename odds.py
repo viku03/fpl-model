@@ -53,7 +53,7 @@ def main(refresh_past=False):
     p1x2 = inv / inv.sum(axis=1, keepdims=True)
     ou = 1 / d[["Avg>2.5", "Avg<2.5"]].values
     p_over = ou[:, 0] / ou.sum(axis=1)
-    lam = np.array([goal_rates(h, a, o) for (h, _, a), o in zip(p1x2, p_over)])
+    lam = np.array([goal_rates(h, a, o) for (h, _, a), o in zip(p1x2, p_over, strict=False)])
     out = pd.DataFrame({"season": d["season"].values, "home": d["HomeTeam"].values, "away": d["AwayTeam"].values,
                         "home_goals": lam[:, 0].round(3), "away_goals": lam[:, 1].round(3)})
     out.to_csv("data/odds_goals.csv", index=False)

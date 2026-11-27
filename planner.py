@@ -84,6 +84,7 @@ def why(i, g):
     return f"{label} vs {opp}: **{pts(i, g):.1f} pts** · {role} · {form}{euro}"
 
 
+chips_left = [CHIP_NAME[k] for k in CHIPS if any(a <= g0 <= b for a, b in windows.get(k, []))]
 # deadlines in Dublin / UK time (handles GMT vs BST automatically)
 dublin = {e["id"]: pd.Timestamp(e["deadline_time"]).tz_convert("Europe/Dublin") for e in boot["events"]}
 lines = [f"# ⏰ GW{g0} DEADLINE: {dublin[g0]:%A %d %B, %H:%M} (Dublin / UK time)", "",
@@ -92,7 +93,7 @@ lines = [f"# ⏰ GW{g0} DEADLINE: {dublin[g0]:%A %d %B, %H:%M} (Dublin / UK time
          f"## FPL plan: GW{GWS[0]}-{GWS[-1]}", "",
          f"Made {pd.Timestamp.now(tz='Europe/Dublin'):%a %d %b %H:%M}. "
          f"Bank £{state['bank']}m, {state['free_transfers']} free transfers, "
-         f"chips left this half: {', '.join(CHIP_NAME[k] for k in CHIPS if any(a <= g0 <= b for a, b in windows.get(k, []))) or 'none'}.",
+         f"chips left this half: {', '.join(chips_left) or 'none'}.",
          "", "Only act on the first gameweek. Run it again after each gameweek, since everything later will change.", ""]
 
 # team news: is each club's news in yet, and the status of every player this week's plan uses
@@ -112,7 +113,8 @@ for i in first.xi + first.bench:
 waiting = sorted({full_name[club[i]] for i in first.xi + first.bench
                   if clubs[full_name[club[i]]]["state"][0] in ("⏳", "⌛")})
 lines += ["", ("**Still waiting on:** " + "; ".join(f"{n} ({clubs[n]['state'][1]})" for n in waiting)
-               + ". Run it again after the ones marked ⏳ if you can.") if waiting else "**All your clubs' news is in.**", "",
+               + ". Run it again after the ones marked ⏳ if you can.")
+          if waiting else "**All your clubs' news is in.**", "",
           "FPL only timestamps a club when a flag changes, so once the usual time has passed with no update, "
           "it's read as no changes.", "",
           "<details><summary>Every club</summary>", "",
@@ -159,7 +161,7 @@ for w in plan.weeks:
               f"hits {w.hits} (-{cfg['hit_cost'] * w.hits}) · bank after £{w.bank:.1f}m", ""]
     if w.ins:
         lines += ["### Transfers", ""]
-        for o, n in zip(sorted(w.outs, key=lambda i: pos[i]), sorted(w.ins, key=lambda i: pos[i])):
+        for o, n in zip(sorted(w.outs, key=lambda i: pos[i]), sorted(w.ins, key=lambda i: pos[i]), strict=False):
             lines += [f"- **OUT** {why(o, g)}", f"- **IN** {why(n, g)}",
                       f"  - Over GW{GWS[0]}-{GWS[-1]}: {horizon_pts(n):.1f} vs {horizon_pts(o):.1f} predicted pts "
                       f"({horizon_pts(n) - horizon_pts(o):+.1f})", ""]
@@ -167,14 +169,16 @@ for w in plan.weeks:
         lines += ["No transfers: none of the options gain enough to beat saving the transfer.", ""]
 
     if w.chip == "bboost":
-        lines += [f"**Why bench boost now:** the bench is predicted {sum(pts(i, g) for i in w.bench):.1f} pts this week.", ""]
+        bench_pts = sum(pts(i, g) for i in w.bench)
+        lines += [f"**Why bench boost now:** the bench is predicted {bench_pts:.1f} pts this week.", ""]
     elif w.chip == "3xc":
         lines += [f"**Why triple captain now:** {name(w.captain)} is predicted {pts(w.captain, g):.1f} pts, "
                   f"so the chip adds about {pts(w.captain, g):.1f}.", ""]
     elif w.chip == "freehit":
         lines += ["**Why free hit now:** this week's best squad beats yours by enough to be worth the chip.", ""]
     elif w.chip == "wildcard":
-        lines += ["**Why wildcard now:** rebuilding the squad beats using free transfers by enough to be worth the chip.", ""]
+        lines += ["**Why wildcard now:** rebuilding the squad beats using free transfers by enough "
+                  "to be worth the chip.", ""]
 
     lines += ["### Team", "", "| Pos | Player | Club | vs | Pts |", "|---|---|---|---|---|"]
     for i in sorted(w.xi, key=lambda i: (pos[i], -pts(i, g))):
@@ -186,7 +190,8 @@ for w in plan.weeks:
     if g == g0:
         top = sorted(w.xi, key=lambda i: -pts(i, g))[1:3]
         lines += ["Next best captains: " + ", ".join(f"{name(i)} {pts(i, g):.1f}" for i in top), "",
-                  "### Why each starter", ""] + [f"- {why(i, g)}" for i in sorted(w.xi, key=lambda i: (pos[i], -pts(i, g)))] + [""]
+                  "### Why each starter", ""]
+        lines += [f"- {why(i, g)}" for i in sorted(w.xi, key=lambda i: (pos[i], -pts(i, g)))] + [""]
 
 total = sum(w.points for w in plan.weeks)
 lines += [f"**Total predicted over GW{GWS[0]}-{GWS[-1]}: {total:.1f}**", "",

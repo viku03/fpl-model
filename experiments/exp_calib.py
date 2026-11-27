@@ -1,5 +1,5 @@
 """Are predictions the right size? Compare predicted vs actual by prediction bucket (walk-forward)."""
-import numpy as np, pandas as pd
+import pandas as pd
 from experiments.harness import load, M
 
 d, feats, extra = load()

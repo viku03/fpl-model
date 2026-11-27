@@ -1,7 +1,5 @@
 """Random search over LightGBM settings: pick on 2024-25, confirm on 2025-26."""
 import random
-import lightgbm as lgb
-import numpy as np
 from experiments.harness import load, evaluate, M, Model
 
 d, feats, extra = load()

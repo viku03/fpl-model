@@ -1,5 +1,4 @@
 """Each idea on its own against the baseline (all four past seasons)."""
-import lightgbm as lgb
 import numpy as np
 from experiments.harness import load, evaluate, M, Model
 

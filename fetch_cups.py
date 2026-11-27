@@ -44,7 +44,7 @@ with ThreadPoolExecutor(6) as ex:
     paths = list(ex.map(lambda j: fetch(*j), jobs))
 
 rows = []
-for (league, _), path in zip(jobs, paths):
+for (league, _), path in zip(jobs, paths, strict=False):
     if not path:
         continue
     for ev in json.load(open(path)):

@@ -66,7 +66,7 @@ def load_past(season):
     d["pos"] = d["position"].map(POS)
     # opponent = the other team playing in the same fixture
     teams = d.groupby("fixture")["team"].unique()
-    d["opp"] = [next((t for t in teams[f] if t != tm), None) for f, tm in zip(d["fixture"], d["team"])]
+    d["opp"] = [next((t for t in teams[f] if t != tm), None) for f, tm in zip(d["fixture"], d["team"], strict=False)]
     if "defensive_contribution" not in d:
         d["defensive_contribution"] = np.nan
     # 2022-23 only started recording xG in GW16; before that it's stored as 0, which means unknown
@@ -117,7 +117,8 @@ def rolling_features(d, keys, cols, windows, prefix=""):
     for c in cols:
         for w in windows:
             name = f"{prefix}{c}_r{w}" if w else f"{prefix}{c}_std"
-            roll = (g[c].rolling(w, min_periods=1) if w else g[c].expanding()).mean().reset_index(level=list(range(len(keys))), drop=True)
+            roll = (g[c].rolling(w, min_periods=1) if w else g[c].expanding()).mean()
+            roll = roll.reset_index(level=list(range(len(keys))), drop=True)
             out[name] = roll
     after = pd.DataFrame(out, index=real.index)  # stats including this game
     before = after.groupby([real[k] for k in keys]).shift(1)  # stats before this game
@@ -179,16 +180,17 @@ def market_ratings(o, season):
     for s, w in ((season, 1.0), (prev_season(season), 0.3)):
         part = o[o["season"] == s].reset_index(drop=True)
         decay = 0.97 ** (len(part) / 10 - np.arange(len(part)) / 10)  # ~10 matches per gameweek
-        for r, dw in zip(part.itertuples(), decay):
+        for r, dw in zip(part.itertuples(), decay, strict=False):
             rows.append((r.home, r.away, 1, np.log(r.home_goals), w * dw))
             rows.append((r.away, r.home, 0, np.log(r.away_goals), w * dw))
     t = pd.DataFrame(rows, columns=["att", "def", "home", "y", "w"])
-    X = pd.concat([pd.get_dummies(t["att"], prefix="a"), -pd.get_dummies(t["def"], prefix="d"), t[["home"]]], axis=1).astype(float)
+    X = pd.concat([pd.get_dummies(t["att"], prefix="a"), -pd.get_dummies(t["def"], prefix="d"), t[["home"]]],
+                  axis=1).astype(float)
     reg = Ridge(alpha=1.0).fit(X, t["y"], sample_weight=t["w"])
 
     def predict(att, dfn, home):
         q = pd.DataFrame(0.0, index=range(len(att)), columns=X.columns)
-        for i, (a, b, h) in enumerate(zip(att, dfn, home)):
+        for i, (a, b, h) in enumerate(zip(att, dfn, home, strict=False)):
             if f"a_{a}" in q:
                 q.at[i, f"a_{a}"] = 1
             if f"d_{b}" in q:
@@ -399,7 +401,8 @@ if __name__ == "__main__":
                 big = (te["total_points"] >= HAUL).astype(int)
                 base = te["total_points_r6"].fillna(0)
                 print(f"  big-score (10+) model on {PAST_SEASONS[i]}: AUC {roc_auc_score(big, hp):.3f} "
-                      f"(last-6 average {roc_auc_score(big, base):.3f}); predicted rate {hp.mean():.3f} vs actual {big.mean():.3f}")
+                      f"(last-6 average {roc_auc_score(big, base):.3f}); "
+                      f"predicted rate {hp.mean():.3f} vs actual {big.mean():.3f}")
             te = te[te["n_games"] >= 3]
             report(te, f"model on {PAST_SEASONS[i]}")
             report(te.assign(pred=te["total_points_r6"].fillna(0)), f"last-6 avg on {PAST_SEASONS[i]}")

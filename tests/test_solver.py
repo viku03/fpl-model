@@ -12,7 +12,7 @@ CLUBS = ["ARS", "CHE", "MUN", "LIV", "TOT", "NEW", "AVL", "BHA"]
 def league():
     rows, pid = [], 0
     for pos, n in ((1, 6), (2, 14), (3, 14), (4, 8)):
-        for k in range(n):
+        for _ in range(n):
             pid += 1
             rows.append(dict(id=pid, pos=pos, club=CLUBS[pid % len(CLUBS)], price=5.0))
     players = pd.DataFrame(rows).set_index("id")

@@ -1,0 +1,10 @@
+[tool.ruff]
+line-length = 125
+extend-exclude = [".venv", "data"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B"]
+ignore = ["E731", "B023", "B008"]
+
+[tool.ruff.lint.per-file-ignores]
+"experiments/*" = ["E501", "B007"]

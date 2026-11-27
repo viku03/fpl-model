@@ -97,6 +97,7 @@ Tests run on every push (GitHub Actions); the 8 that need the downloaded `data/`
 ```
 .venv/bin/python test.py            # every test (~20 s), including a full planner run
 .venv/bin/python test.py --quick    # skip the full planner run
+.venv/bin/ruff check .               # lint (also runs in CI)
 PYTHONPATH=. .venv/bin/python -m experiments.exp_ideas   # re-run any experiment (features cached in data/features.pkl)
 ```
 
